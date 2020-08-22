@@ -37,7 +37,7 @@
 #**************************************#
 
 #import-module "$PSScriptRoot\..\utils\utils.psm1"
-import-module "$PSScriptRoot\..\utils\console.psm1" -force
+import-module "$PSScriptRoot\console.psm1" -force
 
 #**************************************#
 #     classes/types
