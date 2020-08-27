@@ -420,8 +420,6 @@ function Show-Menu {
         [switch] $noRequireEnter
     )
 
-
-
     # ************************************************************
     #  Extend/normalize menu items:
     #    - if the item is a simple string convert it to a MenuItem structure
@@ -460,7 +458,7 @@ function Show-Menu {
         }
     }
 
-    $usedKeys = ($MenuItems + $specialMenuItems).Key
+    $usedKeys = @()+($MenuItems + $specialMenuItems).foreach{$_.key}
 
     # *****  create built-in special menu items (quit/back) to display in separate section
     $specialMenuItems = @() + $specialMenuItems
@@ -528,6 +526,9 @@ function Show-Menu {
 
     $itemList += "`n$dashedLine`n" +  $specialItemList
 
+    if($usedKeys.count -eq 0){
+        Write-Error "Cannot run Show-Menu with no menu options and no special options (`$usedKeys=0)"
+    }
     # display the menu and return the chosen option
     while ($true) {
         #cls

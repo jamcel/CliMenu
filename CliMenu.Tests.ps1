@@ -401,10 +401,10 @@ Describe "Show-Menu" -Tag "Show-Menu" {
   context "    Check that it returns the expected value" {
     $cases = @( @{menuItems= @("a","b","c"); cmdOpts =@{isSubMenu=$true}; userInput="2"; expRetVal="b"},
                 @{menuItems= @("a","b","c"); cmdOpts =@{isSubMenu=$true; valuesAsKeys=$true}; userInput="b"; expRetVal="b"},
-                @{menuItems= @("a","b","c"); cmdOpts =@{isSubMenu=$true; noRequireEnter=$true}; userInput="2xxx"; expRetVal="b"}
-                @{menuItems= @("a","b","c"); cmdOpts =@{isSubMenu=$true; noRequireEnter=$true; valuesAsKeys=$true}; userInput="bxxx"; expRetVal="b"}
-                @{menuItems= @("a","b","c"); cmdOpts =@{isSubMenu=$true; noRequireEnter=$true; valuesAsKeys=$true}; userInput="xbxx"; expRetVal=$null}
-                @{menuItems= $null; cmdOpts =@{isSubMenu=$true; noRequireEnter=$true; valuesAsKeys=$true}; userInput="bxxx"; expRetVal=$null}
+                @{menuItems= @("a","b","c"); cmdOpts =@{isSubMenu=$true; noRequireEnter=$true}; userInput="2xxx"; expRetVal="b"},
+                @{menuItems= @("a","b","c"); cmdOpts =@{isSubMenu=$true; noRequireEnter=$true; valuesAsKeys=$true}; userInput="bxxx"; expRetVal="b"},
+                @{menuItems= @("a","b","c"); cmdOpts =@{isSubMenu=$true; noRequireEnter=$true; valuesAsKeys=$true}; userInput="xbxx"; expRetVal=$null},
+                @{menuItems= $null;          cmdOpts =@{isSubMenu=$true; noRequireEnter=$true; valuesAsKeys=$true}; userInput="bxxx"; expRetVal=$null}
               )
 
     It "with menu items 'a','b','c' and user input '<userInput>'. Expected retVal: '<expRetVal>'" -TestCases $cases -Test {
@@ -451,15 +451,28 @@ Describe "Show-Menu" -Tag "Show-Menu" {
   }
 
   context "    Check that it proposes normal and special item values when typing starts" {
-    $cases = @( @{menuItems= @("boo","X"); cmdOpts =@{isSubMenu=$true; showProposals=$true; valuesAsKeys=$true}; userInput="b`nc"; expRetVal=$null}
-              )
+    $cases = @(
+        @{menuItems= @("boo","X"); cmdOpts =@{isSubMenu=$true; showProposals=$true;  valuesAsKeys=$true};  userInput="b`n"; expRetVal=$null; expProposals=@(@{string="boo|b";count=1})},
+        @{menuItems= @("y","X");   cmdOpts =@{isSubMenu=$true; showProposals=$false; valuesAsKeys=$true};  userInput="b`n"; expRetVal=$null; expProposals=@(@{string="b";count=1})},
+        # the following revealed a bug when having only one menu item: '[no option matches]' was shown for any user input even matches and matches to special options (b/q).
+        @{menuItems= @("X");       cmdOpts =@{isSubMenu=$true; showProposals=$false; valuesAsKeys=$true};  userInput="b`n"; expRetVal=$null; expProposals=@(@{string="b";count=1})},
+        @{menuItems= @("X");       cmdOpts =@{isSubMenu=$true; showProposals=$false; valuesAsKeys=$false}; userInput="b`n"; expRetVal=$null; expProposals=@(@{string="b";count=1})},
+        # dont test user input "q`n" without mocking the quit functionality. Otherwise pester will fail with
+        #       'Exception calling "LeaveTestGroup" with "2" argument(s) ...
+        # workaround for checking correct proposal after user input "q": add "`bb`n"
+        @{menuItems= @("Qualle");  cmdOpts =@{isSubMenu=$true; showProposals=$false; valuesAsKeys=$false}; userInput="q`b1`n"; expRetVal="Qualle"; expProposals=@()}
+        @{menuItems= @("Qualle");  cmdOpts =@{isSubMenu=$true; showProposals=$false; valuesAsKeys=$true};  userInput="q`bQu`n"; expRetVal=$null; expProposals=@()}
+        @{menuItems= @("X");       cmdOpts =@{isSubMenu=$true; showProposals=$false; valuesAsKeys=$false}; userInput="q`b1`n"; expRetVal="X"; expProposals=@()}
+        @{menuItems= @("X");       cmdOpts =@{isSubMenu=$true; showProposals=$false; valuesAsKeys=$true};  userInput="q`bX`n"; expRetVal="X"; expProposals=@()}
+    )
 
   It "with normal and special menu items and user input '<userInput>'." -TestCases $cases -Test {
       param(
             $menuItems,
             $cmdOpts,
             $userInput,
-            $expRetVal
+            $expRetVal,
+            $expProposals
       )
 
       # *** prepare the test
@@ -476,10 +489,12 @@ Describe "Show-Menu" -Tag "Show-Menu" {
       -ParameterFilter { ($foreGroundColor -eq "red") -and ($message -eq "[no option matches]") } `
       -Exactly 0
 
-      Assert-MockCalled  Update-ConsoleLine -ModuleName "CliMenu" `
-      -Scope It `
-      -ParameterFilter {  ($message -eq "boo|b") } `
-      -Times 1
+      foreach($expProposal in $expProposals){
+        Assert-MockCalled  Update-ConsoleLine -ModuleName "CliMenu" `
+        -Scope It `
+        -ParameterFilter {  ($message -eq $expProposal.string) } `
+        -Times $expProposal.count
+      }
     }
   }
 }
