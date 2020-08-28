@@ -654,7 +654,7 @@ function Show-MenuDynamicList {
                 Write-Host "Added '$($newItms[-1])'"
             }
         }while($newItm -ne '###')
-        if($newItms){ $newItms | % { $RefList.Value += $_ } }
+        if($newItms){ $newItms | foreach-object { $RefList.Value += $_ } }
         $retval = $newItms
     }
     return $retval
