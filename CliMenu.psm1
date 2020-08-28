@@ -569,7 +569,7 @@ function Show-Menu {
                 Write-verbose "Invoking script for item `"$($selectedItem.Description)`" with args: $($selectedItem.Args `
                                         | ForEach-Object {if($_){"type:{0} value:{1}" -f $_.getType(),$_}} )"
 
-                $menuRetVals += Invoke-Command -ScriptBlock $selectedItem.Action -ArgumentList $selectedItem.Args
+                $menuRetVals += Invoke-Command -noNewScope -ScriptBlock $selectedItem.Action -ArgumentList $selectedItem.Args
 
             }
             catch {
