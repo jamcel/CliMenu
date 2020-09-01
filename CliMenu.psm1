@@ -575,6 +575,10 @@ function Show-Menu {
             }
             catch {
                     if($PSItem.Exception.Message -ne "menu:back"){
+                        Write-ErrorWithoutStackTrace ("An error was thrown from menu item:`n" `
+                        + $selectedItem.description `
+                        + "`n`n" + ($PSItem.psobject.properties | foreach-object {"{0,20}{1,60}" -f $_.name,$_.value} | out-string) `
+                        )
                         throw $PSItem
                     }
                     return
