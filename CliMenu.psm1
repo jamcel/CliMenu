@@ -481,7 +481,8 @@ function Show-Menu {
 
     # *****  create main item list to display
     $header = $null
-    $len = [math]::Max((($MenuItems).Description | Measure-Object -Maximum -Property Length).Maximum, $Title.Length)
+    $allLines = $Title.split("`n") + $MenuItems.Description
+    $len = ($allLines| Measure-Object -Maximum -Property Length).Maximum
     $dashedLine = '-' * $len
     if (![string]::IsNullOrWhiteSpace($Title)) {
         $header = '{0}{1}{2}{3}' -f $Title, [Environment]::NewLine, $dashedLine, [Environment]::NewLine
@@ -519,9 +520,20 @@ function Show-Menu {
     }
     $itemList = $lines -join "`n"
 
+    $widthUnit = 18
+    $maxLineUnits = 9
+    $specialItemList = ""
     if($specialMenuItems.Count -gt 0){
-        $specialItemList = ($specialMenuItems | ForEach-Object {
-        '[{0}] {1}' -f $_.Key, $_.Description }) -join "   "
+        $specialMenuItems `
+            | ForEach-Object {
+                $itemStr =  "[{0}] {1} " -f $_.Key, $_.Description
+                $width = [math]::Ceiling($itemStr.Length/$widthUnit) * $widthUnit
+                $itemStrRastered = "{0,-$width}" -f $itemStr
+                if(($specialItemList.split("`n")[-1].Length + $width) -gt ($maxLineUnits*$widthUnit)){
+                    $specialItemList += "`n"
+                }
+                $specialItemList += $itemStrRastered
+            }
     }
 
     $itemList += "`n$dashedLine`n" +  $specialItemList
@@ -574,10 +586,12 @@ function Show-Menu {
                 }
             }
             catch {
-                    if($PSItem.Exception.Message -ne "menu:back"){
+                $msg=$PSItem.Exception.Message
+                    if($msg-ne "menu:back"){
+
                         Write-ErrorWithoutStackTrace ("An error was thrown from menu item:`n" `
                         + $selectedItem.description `
-                        + "`n`n" + ($PSItem.psobject.properties | foreach-object {"{0,20}{1,60}" -f $_.name,$_.value} | out-string) `
+                        + "`n`n$msg`n$($PSItem.ScriptStackTrace.split("at")[1] -replace " line ",'' )" `
                         )
                         throw $PSItem
                     }
@@ -596,6 +610,45 @@ function Show-Menu {
             Write-Host ($menuRetVals | out-string) -foregroundColor blue
         }
     }
+}
+
+function Show-MenuPathSelect{
+    param(
+        [ValidateScript({test-path $_})]
+        $startPath = ".",
+        # Limit how often the user can go "one level up" from $startPath
+        $allowedLevelsUp = 20,
+
+        [string]$title,
+
+        [Parameter(ParameterSetName="dirsOnly")]
+        [switch]$dirsOnly,
+
+        [Parameter(ParameterSetName="filesOnly")]
+        [switch]$filesOnly
+    )
+    $tmpSelDir =  (get-item $startPath).FullName
+    $selDir = $null
+    do{
+        $thisDirString = "<select this dir>"
+        $oneDirUpString = "[..]"
+        $menuItems = @($thisDirString, $oneDirUpString)
+        $gciParams = @{directory=[bool]$dirsOnly; file=[bool]$filesOnly}
+        $menuItems += (Get-ChildItem $tmpSelDir @gciParams).Name
+        $sel = Show-Menu -isSubMenu `
+             -Title $title `
+             -menuItems $menuItems `
+             -noRequireEnter `
+             -noQuitOption
+
+        if(-not $sel){break}
+        switch($sel){
+            $thisDirString  { $selDir = $tmpSelDir}
+            $oneDirUpString { $tmpSelDir = $tmpSelDir -replace "\\[^\\]+$",""}
+            default         { $tmpSelDir += "\$sel" }
+        }
+    }while(-not $selDir)
+    $selDir
 }
 
 # This function uses a (referenced) list as input for its options.
@@ -665,6 +718,6 @@ function Show-MenuDynamicList {
     return $retval
 }
 
-Export-ModuleMember -function Read-Input,New-MenuItem,Show-Menu,Show-MenuDynamicList,TabComplete
+Export-ModuleMember -function Read-Input,New-MenuItem,Show-Menu*,TabComplete
 
 
